@@ -155,3 +155,14 @@ Always strip `X-WebHawk-API-Key` header before forwarding.
 | GET | `/api/backends` | List registered backends |
 | DELETE | `/api/backends/{id}` | Deactivate a backend |
 | ANY | `/proxy/*` | Main proxy — inspect and forward everything |
+
+## Drogon Controller Rule — CRITICAL
+All HttpController classes MUST have a default constructor (no arguments).
+Drogon auto-creates controllers and requires this.
+Wire dependencies inside the constructor body, not via constructor parameters.
+NEVER use explicit constructors with arguments on HttpController subclasses.
+
+## Drogon Auto-Creation Rule — CRITICAL
+NEVER call registerController() manually in main.cc.
+Drogon auto-discovers all HttpController subclasses at startup.
+Calling registerController() manually causes a compile error.
