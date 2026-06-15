@@ -1,0 +1,157 @@
+# WebHawk — Cursor Project Rules
+# C++ SaaS Security Middleware | Drogon Framework | Student 3 (Infrastructure)
+
+---
+
+## Project Stack
+- Language: C++17
+- Framework: Drogon (async HTTP — like Express.js but C++)
+- Database: PostgreSQL (primary), Redis (rate limiting counters)
+- Containers: Docker + Docker Compose
+
+---
+
+## Layered Architecture — MANDATORY
+Every feature follows Route → Service → Repository. Never break this.
+
+```
+Route      = HTTP only. Parse request, call Service, return response. No SQL, no logic.
+Service    = Business logic only. No HTTP, no raw SQL.
+Repository = Database queries only. Returns domain objects.
+```
+
+**Bad:** SQL inside a route handler.  
+**Bad:** HTTP response inside a repository.  
+**Good:** Route calls Service, Service calls Repository.
+
+---
+
+## Directory Structure
+
+```
+webhawk/
+├── middleware/src/
+│   ├── routes/        ← HTTP handlers only
+│   ├── services/      ← Business logic
+│   ├── repositories/  ← DB queries
+│   └── utils/         ← Stateless helpers (key gen, http forwarder)
+├── vulnerable-backend/src/routes/
+└── db/init.sql
+```
+
+---
+
+## Naming Conventions
+
+```cpp
+class PascalCaseClass {};
+void camelCaseMethod();
+std::string snake_case_variable;
+constexpr std::string_view SCREAMING_SNAKE_CONSTANT = "value";
+```
+
+---
+
+## Drogon Async Pattern — Always Use Callbacks, Never Block
+
+```cpp
+// CORRECT — async with callback
+void ProxyService::forwardRequest(
+    const drogon::HttpRequestPtr& req,
+    std::function<void(const drogon::HttpResponsePtr&)>&& callback)
+{
+    auto client = drogon::HttpClient::newHttpClient(targetUrl_);
+    client->sendRequest(req, [callback = std::move(callback)](
+        drogon::ReqResult result,
+        const drogon::HttpResponsePtr& response) {
+        if (result == drogon::ReqResult::Ok) {
+            callback(response);
+        } else {
+            auto err = drogon::HttpResponse::newHttpResponse();
+            err->setStatusCode(drogon::k502BadGateway);
+            callback(err);
+        }
+    });
+}
+```
+
+---
+
+## Drogon API Quick Reference
+
+```cpp
+// Reading a request
+auto body    = req->getBody();
+auto params  = req->getParameters();    // query string map
+auto headers = req->getHeaders();
+auto path    = req->getPath();
+auto ip      = req->getPeerAddr().toIp();
+
+// Sending responses
+auto resp = drogon::HttpResponse::newHttpJsonResponse(jsonObject); // JSON
+resp->setStatusCode(drogon::k200OK);
+callback(resp);
+
+auto resp = drogon::HttpResponse::newHttpResponse();              // plain
+resp->setStatusCode(drogon::k403Forbidden);
+resp->setBody(R"({"error":"Blocked by WebHawk"})");
+callback(resp);
+
+// Async DB query
+auto db = drogon::app().getDbClient();
+db->execSqlAsync(
+    "SELECT * FROM backend_registration WHERE api_key = $1",
+    [](const drogon::orm::Result& r) { /* success */ },
+    [](const drogon::orm::DrogonDbException& e) { /* error */ },
+    apiKey
+);
+
+// Filters (run before route handler — use for API key validation)
+class ApiKeyFilter : public drogon::HttpFilter<ApiKeyFilter> {
+public:
+    void doFilter(const drogon::HttpRequestPtr& req,
+                  drogon::FilterCallback&& fcb,
+                  drogon::FilterChainCallback&& fccb) override;
+};
+
+// Smart pointers — never raw new/delete
+auto repo = std::make_shared<BackendRepository>(dbClient_);
+```
+
+---
+
+## Inter-Service Contract (Proxy → Security Engine)
+
+Student 3's proxy calls Student 2's engine at `POST http://middleware:8081/api/security/scan`
+
+**Request body:**
+```json
+{
+  "ip": "1.2.3.4",
+  "method": "POST",
+  "path": "/api/users/login",
+  "query_params": { "redirect": "..." },
+  "headers": { "User-Agent": "..." },
+  "body": "username=admin'--&password=x"
+}
+```
+
+**Response:**
+```json
+{ "safe": false, "attack_type": "SQLi", "detail": "OR pattern in body" }
+```
+
+If `safe: true` → forward to real backend.  
+If `safe: false` → return 403, log to `security_logs`.  
+Always strip `X-WebHawk-API-Key` header before forwarding.
+
+---
+
+## Student 3 Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/backends/register` | Register backend, returns API key |
+| GET | `/api/backends` | List registered backends |
+| DELETE | `/api/backends/{id}` | Deactivate a backend |
+| ANY | `/proxy/*` | Main proxy — inspect and forward everything |
