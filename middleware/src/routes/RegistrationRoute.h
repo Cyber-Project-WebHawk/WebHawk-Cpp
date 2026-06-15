@@ -2,10 +2,16 @@
 #include <drogon/drogon.h>
 #include <memory>
 #include "../services/RegistrationService.h"
+#include "../repositories/BackendRepository.h"
 
 class RegistrationRoute : public drogon::HttpController<RegistrationRoute> {
 public:
-    explicit RegistrationRoute(std::shared_ptr<RegistrationService> service);
+    // Default constructor — Drogon requires this
+    RegistrationRoute() {
+        auto dbClient = drogon::app().getDbClient();
+        auto repo     = std::make_shared<BackendRepository>(dbClient);
+        service_      = std::make_shared<RegistrationService>(repo);
+    }
 
     METHOD_LIST_BEGIN
         ADD_METHOD_TO(RegistrationRoute::registerBackend,   "/api/backends/register", drogon::Post);
