@@ -1,0 +1,73 @@
+#include "SqlInjectionDetector.h"
+#include "StringUtils.h"
+#include <vector>
+
+// Patterns that indicate a SQL injection attempt
+static const std::vector<std::string> SQLI_PATTERNS = {
+    "'",
+    "--",
+    ";--",
+    "/*",
+    "*/",
+    "xp_",
+    "1=1",
+    "or 1=1",
+    "' or '",
+    "union select",
+    "select ",
+    "insert ",
+    "update ",
+    "delete ",
+    "drop ",
+    "create ",
+    "alter ",
+    "exec(",
+    "execute(",
+    "cast(",
+    "convert(",
+    "char(",
+    "nchar(",
+    "varchar(",
+    "sleep(",
+    "waitfor delay",
+    "benchmark(",
+    "information_schema",
+    "sys.tables",
+    "@@version"
+};
+
+bool SqlInjectionDetector::containsSqli(const std::string& input, std::string& matchedPattern) {
+    std::string lower = toLower(input);
+    for (const auto& pattern : SQLI_PATTERNS) {
+        if (lower.find(pattern) != std::string::npos) {
+            matchedPattern = pattern;
+            return true;
+        }
+    }
+    return false;
+}
+
+DetectionResult SqlInjectionDetector::scan(const std::string& path,
+                                            const std::map<std::string, std::string>& queryParams,
+                                            const std::string& body) {
+    std::string matched;
+
+    // Check the URL path
+    if (containsSqli(path, matched)) {
+        return { false, "SQLi pattern found in path: " + matched };
+    }
+
+    // Check each query parameter value
+    for (const auto& [key, value] : queryParams) {
+        if (containsSqli(value, matched)) {
+            return { false, "SQLi pattern found in query param '" + key + "': " + matched };
+        }
+    }
+
+    // Check the request body
+    if (containsSqli(body, matched)) {
+        return { false, "SQLi pattern found in body: " + matched };
+    }
+
+    return { true, "" };
+}

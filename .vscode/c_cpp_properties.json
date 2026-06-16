@@ -1,17 +1,14 @@
 {
     "configurations": [
         {
-            "name": "Docker (Linux)",
+            "name": "MSVC",
             "includePath": [
                 "${workspaceFolder}/**"
             ],
             "defines": [],
             "cppStandard": "c++17",
-            "intelliSenseMode": "linux-gcc-x64",
-            "compilerPath": "",
-            "browse": {
-                "limitSymbolsToIncludedHeaders": true
-            }
+            "intelliSenseMode": "windows-msvc-x64",
+            "compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.43.34808/bin/Hostx64/x64/cl.exe"
         }
     ],
     "version": 4

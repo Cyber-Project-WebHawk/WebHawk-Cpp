@@ -27,6 +27,23 @@ services:
       timeout: 3s
       retries: 5
 
+  security-engine:
+    build: ./security-engine
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: webhawk
+      DB_USER: webhawk
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   middleware:
     build: ./middleware
     ports:
@@ -38,12 +55,14 @@ services:
       DB_USER: webhawk
       DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
-      SECURITY_ENGINE_URL: http://middleware:8081
+      SECURITY_ENGINE_URL: http://security-engine:8081
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      security-engine:
+        condition: service_started
 
   vulnerable-backend:
     build: ./vulnerable-backend
