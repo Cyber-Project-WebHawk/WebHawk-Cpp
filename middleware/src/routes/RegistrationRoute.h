@@ -6,13 +6,6 @@
 
 class RegistrationRoute : public drogon::HttpController<RegistrationRoute> {
 public:
-    // Default constructor — Drogon requires this
-    RegistrationRoute() {
-        auto dbClient = drogon::app().getDbClient();
-        auto repo     = std::make_shared<BackendRepository>(dbClient);
-        service_      = std::make_shared<RegistrationService>(repo);
-    }
-
     METHOD_LIST_BEGIN
         ADD_METHOD_TO(RegistrationRoute::registerBackend,   "/api/backends/register", drogon::Post);
         ADD_METHOD_TO(RegistrationRoute::listBackends,      "/api/backends",          drogon::Get);
@@ -23,12 +16,10 @@ public:
         const drogon::HttpRequestPtr& req,
         std::function<void(const drogon::HttpResponsePtr&)>&& callback
     );
-
     void listBackends(
         const drogon::HttpRequestPtr& req,
         std::function<void(const drogon::HttpResponsePtr&)>&& callback
     );
-
     void deactivateBackend(
         const drogon::HttpRequestPtr& req,
         std::function<void(const drogon::HttpResponsePtr&)>&& callback,
@@ -36,5 +27,15 @@ public:
     );
 
 private:
+    // Lazy — created on first request, not at startup
+    std::shared_ptr<RegistrationService> getService() {
+        if (!service_) {
+            auto db   = drogon::app().getDbClient();
+            auto repo = std::make_shared<BackendRepository>(db);
+            service_  = std::make_shared<RegistrationService>(repo);
+        }
+        return service_;
+    }
+
     std::shared_ptr<RegistrationService> service_;
 };

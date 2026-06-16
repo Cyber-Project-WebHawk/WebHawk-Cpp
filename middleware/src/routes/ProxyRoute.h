@@ -7,17 +7,6 @@
 
 class ProxyRoute : public drogon::HttpController<ProxyRoute> {
 public:
-    // Default constructor — Drogon requires this
-    ProxyRoute() {
-        auto dbClient       = drogon::app().getDbClient();
-        auto repo           = std::make_shared<BackendRepository>(dbClient);
-        auto engineUrl      = std::string(getenv("SECURITY_ENGINE_URL") 
-                                ? getenv("SECURITY_ENGINE_URL") 
-                                : "http://localhost:8081");
-        auto securityClient = std::make_shared<SecurityClient>(engineUrl);
-        proxyService_       = std::make_shared<ProxyService>(repo, securityClient);
-    }
-
     METHOD_LIST_BEGIN
         ADD_METHOD_TO(ProxyRoute::handleRequest, "/proxy/{path}",
                       drogon::Get, drogon::Post, drogon::Put,
@@ -31,7 +20,20 @@ public:
     );
 
 private:
-    std::shared_ptr<ProxyService> proxyService_;
+    // Lazy — created on first request, not at startup
+    std::shared_ptr<ProxyService> getProxyService() {
+        if (!proxyService_) {
+            auto db             = drogon::app().getDbClient();
+            auto repo           = std::make_shared<BackendRepository>(db);
+            const std::string url = getenv("SECURITY_ENGINE_URL")
+                                    ? getenv("SECURITY_ENGINE_URL")
+                                    : "http://localhost:8081";
+            auto secClient      = std::make_shared<SecurityClient>(url);
+            proxyService_       = std::make_shared<ProxyService>(repo, secClient);
+        }
+        return proxyService_;
+    }
 
+    std::shared_ptr<ProxyService> proxyService_;
     std::string extractApiKey(const drogon::HttpRequestPtr& req);
 };
