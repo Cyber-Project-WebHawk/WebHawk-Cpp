@@ -27,9 +27,9 @@ void ScanRoute::scan(const drogon::HttpRequestPtr& req,
 
     // Extract query params into a map
     std::map<std::string, std::string> queryParams;
-    if (body->isMember("queryParams")) {
-        for (const auto& key : (*body)["queryParams"].getMemberNames()) {
-            queryParams[key] = (*body)["queryParams"][key].asString();
+    if (body->isMember("query_params")) {
+        for (const auto& key : (*body)["query_params"].getMemberNames()) {
+            queryParams[key] = (*body)["query_params"][key].asString();
         }
     }
 
@@ -38,7 +38,7 @@ void ScanRoute::scan(const drogon::HttpRequestPtr& req,
         SecurityLogRepository::log(ip, method, path, "RateLimit", requestBody);
         Json::Value result;
         result["safe"]       = false;
-        result["attackType"] = "RateLimit";
+        result["attack_type"] = "RateLimit";
         result["detail"]     = "Too many requests from this IP";
         callback(drogon::HttpResponse::newHttpJsonResponse(result));
         return;
@@ -50,7 +50,7 @@ void ScanRoute::scan(const drogon::HttpRequestPtr& req,
         SecurityLogRepository::log(ip, method, path, "SQLi", requestBody);
         Json::Value result;
         result["safe"]       = false;
-        result["attackType"] = "SQLi";
+        result["attack_type"] = "SQLi";
         result["detail"]     = sqliResult.detail;
         callback(drogon::HttpResponse::newHttpJsonResponse(result));
         return;
@@ -62,7 +62,7 @@ void ScanRoute::scan(const drogon::HttpRequestPtr& req,
         SecurityLogRepository::log(ip, method, path, "XSS", requestBody);
         Json::Value result;
         result["safe"]       = false;
-        result["attackType"] = "XSS";
+        result["attack_type"] = "XSS";
         result["detail"]     = xssResult.detail;
         callback(drogon::HttpResponse::newHttpJsonResponse(result));
         return;
@@ -71,7 +71,7 @@ void ScanRoute::scan(const drogon::HttpRequestPtr& req,
     // All checks passed — request is safe
     Json::Value result;
     result["safe"]       = true;
-    result["attackType"] = "";
+    result["attack_type"] = "";
     result["detail"]     = "";
     callback(drogon::HttpResponse::newHttpJsonResponse(result));
 }
