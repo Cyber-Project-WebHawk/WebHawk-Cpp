@@ -8,9 +8,9 @@
 class ProxyRoute : public drogon::HttpController<ProxyRoute> {
 public:
     METHOD_LIST_BEGIN
-        ADD_METHOD_TO(ProxyRoute::handleRequest, "/proxy/{path}",
-                      drogon::Get, drogon::Post, drogon::Put,
-                      drogon::Delete, drogon::Patch);
+        ADD_METHOD_VIA_REGEX(ProxyRoute::handleRequest, "/proxy/(.*)",
+                             drogon::Get, drogon::Post, drogon::Put,
+                             drogon::Delete, drogon::Patch);
     METHOD_LIST_END
 
     void handleRequest(
@@ -20,16 +20,15 @@ public:
     );
 
 private:
-    // Lazy — created on first request, not at startup
     std::shared_ptr<ProxyService> getProxyService() {
         if (!proxyService_) {
-            auto db             = drogon::app().getDbClient();
-            auto repo           = std::make_shared<BackendRepository>(db);
+            auto db        = drogon::app().getDbClient();
+            auto repo      = std::make_shared<BackendRepository>(db);
             const std::string url = getenv("SECURITY_ENGINE_URL")
                                     ? getenv("SECURITY_ENGINE_URL")
                                     : "http://localhost:8081";
-            auto secClient      = std::make_shared<SecurityClient>(url);
-            proxyService_       = std::make_shared<ProxyService>(repo, secClient);
+            auto secClient = std::make_shared<SecurityClient>(url);
+            proxyService_  = std::make_shared<ProxyService>(repo, secClient);
         }
         return proxyService_;
     }

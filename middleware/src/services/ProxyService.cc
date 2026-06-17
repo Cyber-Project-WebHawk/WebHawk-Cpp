@@ -7,8 +7,6 @@ ProxyService::ProxyService(
     : repo_(std::move(repo))
     , securityClient_(std::move(securityClient)) {}
 
-// ── handleRequest ─────────────────────────────────────────────────────────────
-
 void ProxyService::handleRequest(
     const drogon::HttpRequestPtr& req,
     const std::string& apiKey,
@@ -27,7 +25,6 @@ void ProxyService::handleRequest(
                 return;
             }
 
-            // ── build ScanRequest from live HTTP request ───────────────────
             ScanRequest scanReq;
             scanReq.ip     = req->getPeerAddr().toIp();
             scanReq.method = req->getMethodString();
@@ -54,7 +51,6 @@ void ProxyService::handleRequest(
                     forwardRequest(req, targetUrl, std::move(callback));
                 },
                 [callback](const std::string& err) mutable {
-                    // Security engine unreachable — fail closed
                     Json::Value body;
                     body["error"] = "Security scan unavailable: " + err;
                     auto resp = drogon::HttpResponse::newHttpJsonResponse(body);
@@ -73,15 +69,20 @@ void ProxyService::handleRequest(
     );
 }
 
-// ── forwardRequest ────────────────────────────────────────────────────────────
-
 void ProxyService::forwardRequest(
     const drogon::HttpRequestPtr& req,
     const std::string& targetUrl,
     std::function<void(const drogon::HttpResponsePtr&)>&& callback)
 {
-    // Strip the internal WebHawk API key before forwarding
     req->removeHeader("x-webhawk-api-key");
+
+    std::string forwardPath = req->getPath();
+    const std::string proxyPrefix = "/proxy";
+    if (forwardPath.substr(0, proxyPrefix.size()) == proxyPrefix) {
+        forwardPath = forwardPath.substr(proxyPrefix.size());
+    }
+    if (forwardPath.empty()) forwardPath = "/";
+    req->setPath(forwardPath);
 
     auto client = drogon::HttpClient::newHttpClient(targetUrl);
     client->sendRequest(
@@ -89,6 +90,8 @@ void ProxyService::forwardRequest(
         [callback = std::move(callback)]
         (drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
             if (result == drogon::ReqResult::Ok && resp) {
+                resp->removeHeader("content-length");
+                resp->removeHeader("transfer-encoding");
                 callback(resp);
             } else {
                 auto err = drogon::HttpResponse::newHttpResponse();
@@ -100,14 +103,11 @@ void ProxyService::forwardRequest(
         });
 }
 
-// ── makeBlockedResponse ───────────────────────────────────────────────────────
-
 drogon::HttpResponsePtr ProxyService::makeBlockedResponse(const std::string& attackType)
 {
     Json::Value body;
     body["error"]       = "Blocked by WebHawk";
     body["attack_type"] = attackType;
-
     auto resp = drogon::HttpResponse::newHttpJsonResponse(body);
     resp->setStatusCode(drogon::k403Forbidden);
     return resp;

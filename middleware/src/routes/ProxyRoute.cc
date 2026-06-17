@@ -1,8 +1,6 @@
 #include "ProxyRoute.h"
 #include <json/json.h>
 
-// ── ANY /proxy/{path} ─────────────────────────────────────────────────────────
-
 void ProxyRoute::handleRequest(
     const drogon::HttpRequestPtr& req,
     std::function<void(const drogon::HttpResponsePtr&)>&& callback,
@@ -22,11 +20,8 @@ void ProxyRoute::handleRequest(
     getProxyService()->handleRequest(req, apiKey, std::move(callback));
 }
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-
 std::string ProxyRoute::extractApiKey(const drogon::HttpRequestPtr& req)
 {
-    // Drogon lowercases all header names
     const auto& headers = req->getHeaders();
     auto it = headers.find("x-webhawk-api-key");
     if (it == headers.end()) {
