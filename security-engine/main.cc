@@ -5,7 +5,6 @@ int main() {
     const std::string dbName    = getenv("DB_NAME")     ? getenv("DB_NAME")     : "webhawk";
     const std::string dbUser    = getenv("DB_USER")     ? getenv("DB_USER")     : "webhawk";
     const std::string dbPass    = getenv("DB_PASSWORD") ? getenv("DB_PASSWORD") : "";
-    const std::string redisHost = getenv("REDIS_HOST")  ? getenv("REDIS_HOST")  : "localhost";
 
     drogon::orm::PostgresConfig pgConfig;
     pgConfig.host             = dbHost;
@@ -14,10 +13,14 @@ int main() {
     pgConfig.username         = dbUser;
     pgConfig.password         = dbPass;
     pgConfig.connectionNumber = 4;
+    pgConfig.name             = "default";
+    pgConfig.isFast           = false;
+    pgConfig.characterSet     = "";
+    pgConfig.timeout          = 30.0;
+    pgConfig.autoBatch        = false;
 
     drogon::app()
         .addDbClient(pgConfig)
-        .addRedisClient(redisHost, 6379)
         .setLogPath("./")
         .setLogLevel(trantor::Logger::kInfo)
         .setThreadNum(4)
