@@ -27,7 +27,10 @@ echo "--- Auth ---"
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/api/auth/register" \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@test.local","password":"Admin123!"}')
-assert_status "POST /api/auth/register (first user → admin)" 201 "$STATUS"
+# 201 = fresh DB; 409 = user already exists from a previous run — both are fine
+if [ "$STATUS" -eq 201 ]; then ok "POST /api/auth/register (first user → admin, HTTP 201)";
+elif [ "$STATUS" -eq 409 ]; then ok "POST /api/auth/register (user exists from prior run, HTTP 409 — skipping)";
+else fail "POST /api/auth/register (expected 201 or 409, got $STATUS)"; fi
 
 # ── 2. Duplicate registration ────────────────────────────────────────────────
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/api/auth/register" \
