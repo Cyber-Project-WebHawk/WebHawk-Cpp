@@ -20,15 +20,9 @@ int main() {
     pgConfig.timeout          = 30.0;
     pgConfig.autoBatch        = false;
 
-    drogon::nosql::RedisConfig redisConfig;
-    redisConfig.host           = redisHost;
-    redisConfig.port           = 6379;
-    redisConfig.connectionNumber = 4;
-    redisConfig.name           = "default";
-
     drogon::app()
         .addDbClient(pgConfig)
-        .addRedisClient(redisConfig)
+        .createRedisClient(redisHost, 6379, "default", "", 4)
         .setLogPath("./")
         .setLogLevel(trantor::Logger::kInfo)
         .setThreadNum(4)
