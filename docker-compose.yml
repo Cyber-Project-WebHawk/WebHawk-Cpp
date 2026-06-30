@@ -86,7 +86,7 @@ services:
       WEBHAWK_BASE: http://middleware:8080
     volumes:
       - ./test_e2e.sh:/test_e2e.sh:ro
-    entrypoint: ["sh", "-c", "apk add --no-cache bash curl jq > /dev/null 2>&1 && bash /test_e2e.sh"]
+    entrypoint: ["sh", "-c", "apk add --no-cache bash curl jq > /dev/null 2>&1 && sed 's/\\r//' /test_e2e.sh > /tmp/test.sh && bash /tmp/test.sh"]
     depends_on:
       - middleware
       - security-engine
