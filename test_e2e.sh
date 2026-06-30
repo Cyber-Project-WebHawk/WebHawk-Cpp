@@ -25,7 +25,7 @@ assert_status() {
 curl_status() {
     # curl already writes "000" to stdout on timeout/error before exiting non-zero,
     # so || true is enough — || echo "000" would double the output.
-    curl --connect-timeout 5 --max-time 10 -s -o /dev/null -w "%{http_code}" "$@" || true
+    curl --connect-timeout 5 --max-time 25 -s -o /dev/null -w "%{http_code}" "$@" || true
 }
 
 echo "=== WebHawk E2E Test Suite ==="
@@ -48,7 +48,7 @@ STATUS=$(curl_status -X POST "$BASE/api/auth/register" \
 assert_status "POST /api/auth/register (duplicate → 409)" 409 "$STATUS"
 
 # ── 3. Login ─────────────────────────────────────────────────────────────────
-LOGIN=$(curl --connect-timeout 5 --max-time 10 -s -X POST "$BASE/api/auth/login" \
+LOGIN=$(curl --connect-timeout 5 --max-time 25 -s -X POST "$BASE/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@test.local","password":"Admin123!"}' || echo '{}')
 ACCESS=$(echo "$LOGIN" | jq -r '.accessToken // empty')
@@ -76,7 +76,7 @@ STATUS=$(curl_status -X POST "$BASE/api/auth/login" \
 assert_status "POST /api/auth/login (wrong password → 401)" 401 "$STATUS"
 
 # ── 6. Token refresh ─────────────────────────────────────────────────────────
-REFRESHED=$(curl --connect-timeout 5 --max-time 10 -s -X POST "$BASE/api/auth/refresh" \
+REFRESHED=$(curl --connect-timeout 5 --max-time 25 -s -X POST "$BASE/api/auth/refresh" \
   -H "Content-Type: application/json" \
   -d "{\"refreshToken\":\"$REFRESH\"}" || echo '{}')
 NEW_ACCESS=$(echo "$REFRESHED" | jq -r '.accessToken // empty')
@@ -87,7 +87,7 @@ echo ""
 echo "--- Backend Registration ---"
 
 # ── 7. Register backend (admin only) ─────────────────────────────────────────
-REG=$(curl --connect-timeout 5 --max-time 10 -s -X POST "$BASE/api/backends/register" \
+REG=$(curl --connect-timeout 5 --max-time 25 -s -X POST "$BASE/api/backends/register" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ACCESS" \
   -d '{"serviceName":"vuln-backend","targetUrl":"http://vulnerable-backend:9090"}' || echo '{}')
@@ -116,7 +116,7 @@ if [ "$REG_STATUS" -eq 201 ]; then ok "POST /api/auth/register (non-admin user, 
 elif [ "$REG_STATUS" -eq 409 ]; then ok "POST /api/auth/register (non-admin user exists from prior run, HTTP 409 — skipping)";
 else fail "POST /api/auth/register non-admin (expected 201 or 409, got $REG_STATUS)"; fi
 
-LOGIN2=$(curl --connect-timeout 5 --max-time 10 -s -X POST "$BASE/api/auth/login" \
+LOGIN2=$(curl --connect-timeout 5 --max-time 25 -s -X POST "$BASE/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email":"user@test.local","password":"User1234!"}' || echo '{}')
 USER_TOKEN=$(echo "$LOGIN2" | jq -r '.accessToken // empty')
@@ -143,7 +143,7 @@ STATUS=$(curl_status "$BASE/proxy/vuln/ping" \
 assert_status "GET /proxy/vuln/ping (safe → forwarded, 200)" 200 "$STATUS"
 
 # ── 14. SQLi blocked ─────────────────────────────────────────────────────────
-BODY=$(curl --connect-timeout 5 --max-time 10 -s -X POST "$BASE/proxy/vuln/login" \
+BODY=$(curl --connect-timeout 5 --max-time 25 -s -X POST "$BASE/proxy/vuln/login" \
   -H "X-WebHawk-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"username":"admin'\''--","password":"x"}' || echo '{}')

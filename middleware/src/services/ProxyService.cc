@@ -88,7 +88,7 @@ void ProxyService::forwardRequest(
     auto client = drogon::HttpClient::newHttpClient(targetUrl);
     client->sendRequest(
         req,
-        [callback = std::move(callback)]
+        [client, callback = std::move(callback)]
         (drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
             if (result == drogon::ReqResult::Ok && resp) {
                 resp->removeHeader("content-length");

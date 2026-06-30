@@ -37,7 +37,8 @@ void SecurityClient::scan(
     auto client = drogon::HttpClient::newHttpClient(engineUrl_);
     client->sendRequest(
         scanReq,
-        [callback      = std::move(callback),
+        [client,
+         callback      = std::move(callback),
          errorCallback = std::move(errorCallback)]
         (drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
             if (result != drogon::ReqResult::Ok || !resp) {
