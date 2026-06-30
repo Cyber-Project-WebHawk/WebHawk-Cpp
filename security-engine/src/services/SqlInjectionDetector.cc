@@ -65,6 +65,7 @@ DetectionResult SqlInjectionDetector::scan(const std::string& path,
         return { false, "SQLi pattern found in body: " + matched };
 
     for (const auto& [name, value] : headers) {
+        if (!isScannableHeader(name)) continue;
         if (containsSqli(value, matched))
             return { false, "SQLi pattern found in header '" + name + "': " + matched };
     }

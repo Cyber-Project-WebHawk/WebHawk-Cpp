@@ -66,6 +66,7 @@ DetectionResult XssDetector::scan(const std::string& path,
         return { false, "XSS pattern found in body: " + matched };
 
     for (const auto& [name, value] : headers) {
+        if (!isScannableHeader(name)) continue;
         if (containsXss(value, matched))
             return { false, "XSS pattern found in header '" + name + "': " + matched };
     }
