@@ -144,6 +144,78 @@ The `X-WebHawk-API-Key` header is removed before the request reaches the backend
 
 Checks run in order: **Rate Limit** (Redis) → **SQL Injection** → **XSS**. Blocked requests are logged to `security_logs`.
 
+---
+
+## Security Engine — Detection Details
+
+The security engine runs three checks on every request **in sequence**. The first check that fires returns immediately — the rest are skipped.
+
+### 1. Rate Limiting (Redis)
+
+Every client IP is tracked with a Redis counter (`rate:<ip>`). The counter auto-expires after **60 seconds**.
+
+| Threshold | Action |
+|-----------|--------|
+| ≤ 100 requests / 60 s | Allowed — scan continues |
+| > 100 requests / 60 s | Blocked — `attack_type: RateLimit` |
+
+The counter is incremented with `INCR` and the TTL is set only on the **first** request of each window, so the window is always 60 seconds from the first hit. The Redis call is **fully asynchronous** — the Drogon event loop is never blocked.
+
+### 2. SQL Injection Detection
+
+The following parts of every request are scanned:
+
+| Location | Example |
+|----------|---------|
+| URL path | `/search/users'--` |
+| Query parameters | `?id=1 OR 1=1` |
+| Request body | `{"user":"admin'; DROP TABLE users--"}` |
+| HTTP headers | `User-Agent: ' UNION SELECT * FROM users--` |
+
+Detected pattern categories:
+
+| Category | Patterns |
+|----------|----------|
+| Comment syntax | `--`, `;--`, `/*`, `*/` |
+| Tautologies | `1=1`, `or 1=1`, `' or '` |
+| DML / DDL keywords | `union select`, `select `, `insert `, `update `, `delete `, `drop `, `create `, `alter ` |
+| Stored procedures | `exec(`, `execute(`, `xp_` |
+| Type functions | `cast(`, `convert(`, `char(`, `nchar(`, `varchar(` |
+| Time-based blind | `sleep(`, `waitfor delay`, `benchmark(` |
+| Information disclosure | `information_schema`, `sys.tables`, `@@version` |
+
+All comparisons are case-insensitive (`toLower` before matching).
+
+### 3. XSS Detection
+
+The same four locations are scanned (path, query params, body, headers).
+
+| Category | Patterns |
+|----------|----------|
+| Script tags | `<script`, `</script>` |
+| Event handlers | `onload=`, `onerror=`, `onclick=`, `onmouseover=`, `onfocus=`, `onblur=`, `onkeydown=`, `onkeyup=`, `onsubmit=` |
+| Dangerous tags | `<iframe`, `<img`, `<svg`, `<body`, `<input`, `<link`, `<meta` |
+| Dangerous URIs | `javascript:`, `vbscript:`, `src=javascript`, `href=javascript`, `url(javascript` |
+| DOM manipulation | `document.cookie`, `document.write`, `window.location`, `eval(`, `expression(` |
+| Encoded payloads | `&#`, `%3cscript`, `%3c` |
+| Other | `alert(` |
+
+### Attack Logging
+
+Every blocked request is written to `security_logs`:
+
+| Column | Value |
+|--------|-------|
+| `ip_address` | Client IP from the middleware |
+| `method` | HTTP method (GET, POST, …) |
+| `endpoint` | Request path |
+| `attack_type` | `SQLi`, `XSS`, or `RateLimit` |
+| `was_blocked` | Always `TRUE` for blocked requests |
+| `raw_payload` | Full request body (for forensics) |
+| `detected_at` | Server timestamp |
+
+---
+
 ### Vulnerable Backend (`vulnerable-backend:9090`) — Testing only
 
 | Method | Path | Vulnerability |
