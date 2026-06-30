@@ -26,8 +26,15 @@ void ScanRoute::scan(const drogon::HttpRequestPtr& req,
 
     std::map<std::string, std::string> queryParams;
     if (body->isMember("query_params")) {
-        for (const auto& key : (*body)["query_params"].getMemberNames()) {
-            queryParams[key] = (*body)["query_params"][key].asString();
+        for (const auto& k : (*body)["query_params"].getMemberNames()) {
+            queryParams[k] = (*body)["query_params"][k].asString();
+        }
+    }
+
+    std::map<std::string, std::string> headers;
+    if (body->isMember("headers")) {
+        for (const auto& k : (*body)["headers"].getMemberNames()) {
+            headers[k] = (*body)["headers"][k].asString();
         }
     }
 
@@ -35,6 +42,7 @@ void ScanRoute::scan(const drogon::HttpRequestPtr& req,
     RateLimiter::checkBlocked(ip,
         [ip, method, path, requestBody, backendId,
          queryParams = std::move(queryParams),
+         headers     = std::move(headers),
          callback    = std::move(callback)](bool blocked) mutable {
 
             if (blocked) {
@@ -47,8 +55,8 @@ void ScanRoute::scan(const drogon::HttpRequestPtr& req,
                 return;
             }
 
-            // SQL Injection check
-            auto sqliResult = SqlInjectionDetector::scan(path, queryParams, requestBody);
+            // SQL Injection check — covers path, query params, body, and headers
+            auto sqliResult = SqlInjectionDetector::scan(path, queryParams, requestBody, headers);
             if (!sqliResult.safe) {
                 SecurityLogRepository::log(backendId, ip, method, path, "SQLi", requestBody);
                 Json::Value result;
@@ -59,8 +67,8 @@ void ScanRoute::scan(const drogon::HttpRequestPtr& req,
                 return;
             }
 
-            // XSS check (now also scans path)
-            auto xssResult = XssDetector::scan(path, queryParams, requestBody);
+            // XSS check — covers path, query params, body, and headers
+            auto xssResult = XssDetector::scan(path, queryParams, requestBody, headers);
             if (!xssResult.safe) {
                 SecurityLogRepository::log(backendId, ip, method, path, "XSS", requestBody);
                 Json::Value result;

@@ -49,24 +49,24 @@ bool SqlInjectionDetector::containsSqli(const std::string& input, std::string& m
 
 DetectionResult SqlInjectionDetector::scan(const std::string& path,
                                             const std::map<std::string, std::string>& queryParams,
-                                            const std::string& body) {
+                                            const std::string& body,
+                                            const std::map<std::string, std::string>& headers) {
     std::string matched;
 
-    // Check the URL path
-    if (containsSqli(path, matched)) {
+    if (containsSqli(path, matched))
         return { false, "SQLi pattern found in path: " + matched };
-    }
 
-    // Check each query parameter value
     for (const auto& [key, value] : queryParams) {
-        if (containsSqli(value, matched)) {
+        if (containsSqli(value, matched))
             return { false, "SQLi pattern found in query param '" + key + "': " + matched };
-        }
     }
 
-    // Check the request body
-    if (containsSqli(body, matched)) {
+    if (containsSqli(body, matched))
         return { false, "SQLi pattern found in body: " + matched };
+
+    for (const auto& [name, value] : headers) {
+        if (containsSqli(value, matched))
+            return { false, "SQLi pattern found in header '" + name + "': " + matched };
     }
 
     return { true, "" };

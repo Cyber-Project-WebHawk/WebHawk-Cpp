@@ -50,24 +50,24 @@ bool XssDetector::containsXss(const std::string& input, std::string& matchedPatt
 
 DetectionResult XssDetector::scan(const std::string& path,
                                    const std::map<std::string, std::string>& queryParams,
-                                   const std::string& body) {
+                                   const std::string& body,
+                                   const std::map<std::string, std::string>& headers) {
     std::string matched;
 
-    // Check the URL path
-    if (containsXss(path, matched)) {
+    if (containsXss(path, matched))
         return { false, "XSS pattern found in path: " + matched };
-    }
 
-    // Check each query parameter value
     for (const auto& [key, value] : queryParams) {
-        if (containsXss(value, matched)) {
+        if (containsXss(value, matched))
             return { false, "XSS pattern found in query param '" + key + "': " + matched };
-        }
     }
 
-    // Check the request body
-    if (containsXss(body, matched)) {
+    if (containsXss(body, matched))
         return { false, "XSS pattern found in body: " + matched };
+
+    for (const auto& [name, value] : headers) {
+        if (containsXss(value, matched))
+            return { false, "XSS pattern found in header '" + name + "': " + matched };
     }
 
     return { true, "" };
