@@ -113,25 +113,25 @@ echo ""
 echo "--- Proxy / Security Engine ---"
 
 # ── 11. Missing API key ───────────────────────────────────────────────────────
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/proxy/vuln/ping")
+STATUS=$(curl --connect-timeout 5 --max-time 10 -s -o /dev/null -w "%{http_code}" "$BASE/proxy/vuln/ping")
 assert_status "GET /proxy/vuln/ping (no API key → 401)" 401 "$STATUS"
 
 # ── 12. Unknown API key ───────────────────────────────────────────────────────
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/proxy/vuln/ping" \
+STATUS=$(curl --connect-timeout 5 --max-time 10 -s -o /dev/null -w "%{http_code}" "$BASE/proxy/vuln/ping" \
   -H "X-WebHawk-API-Key: 0000000000000000000000000000000000000000000000000000000000000000")
 assert_status "GET /proxy/vuln/ping (bad key → 404)" 404 "$STATUS"
 
 # ── 13. Safe request forwarded ────────────────────────────────────────────────
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/proxy/vuln/ping" \
+STATUS=$(curl --connect-timeout 5 --max-time 10 -s -o /dev/null -w "%{http_code}" "$BASE/proxy/vuln/ping" \
   -H "X-WebHawk-API-Key: $API_KEY")
 assert_status "GET /proxy/vuln/ping (safe → forwarded, 200)" 200 "$STATUS"
 
 # ── 14. SQLi blocked ─────────────────────────────────────────────────────────
-BODY=$(curl -s -X POST "$BASE/proxy/vuln/login" \
+BODY=$(curl --connect-timeout 5 --max-time 10 -s -X POST "$BASE/proxy/vuln/login" \
   -H "X-WebHawk-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"username":"admin'\''--","password":"x"}')
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/proxy/vuln/login" \
+STATUS=$(curl --connect-timeout 5 --max-time 10 -s -o /dev/null -w "%{http_code}" -X POST "$BASE/proxy/vuln/login" \
   -H "X-WebHawk-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"username":"admin'\''--","password":"x"}')
@@ -142,7 +142,7 @@ if [ "$ATTACK" = "SQLi" ]; then ok "SQLi attack_type in response";
 else fail "SQLi attack_type missing (got: $ATTACK)"; fi
 
 # ── 15. XSS blocked ──────────────────────────────────────────────────────────
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+STATUS=$(curl --connect-timeout 5 --max-time 10 -s -o /dev/null -w "%{http_code}" \
   "$BASE/proxy/vuln/search?q=%3Cscript%3Ealert(1)%3C/script%3E" \
   -H "X-WebHawk-API-Key: $API_KEY")
 assert_status "GET /proxy/vuln/search (XSS → 403)" 403 "$STATUS"

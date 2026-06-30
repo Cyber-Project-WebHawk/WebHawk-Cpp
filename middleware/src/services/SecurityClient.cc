@@ -64,5 +64,6 @@ void SecurityClient::scan(
             scanResult.detail     = (*json).get("detail", "").asString();
 
             callback(std::move(scanResult));
-        });
+        },
+        10.0 /* timeout seconds */);
 }

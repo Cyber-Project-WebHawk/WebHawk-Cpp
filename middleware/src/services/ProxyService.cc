@@ -101,7 +101,8 @@ void ProxyService::forwardRequest(
                 err->setContentTypeCode(drogon::CT_APPLICATION_JSON);
                 callback(err);
             }
-        });
+        },
+        10.0 /* timeout seconds */);
 }
 
 drogon::HttpResponsePtr ProxyService::makeBlockedResponse(const std::string& attackType)
