@@ -43,6 +43,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/localhost/8081' 2>/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
 
   middleware:
     build: ./middleware
@@ -63,7 +69,13 @@ services:
       redis:
         condition: service_healthy
       security-engine:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/localhost/8080' 2>/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
 
   vulnerable-backend:
     build: ./vulnerable-backend
@@ -78,6 +90,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/localhost/9090' 2>/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
 
   tester:
     image: alpine:3.19
@@ -88,9 +106,12 @@ services:
       - ./test_e2e.sh:/test_e2e.sh:ro
     entrypoint: ["sh", "-c", "apk add --no-cache bash curl jq > /dev/null 2>&1 && sed 's/\\r//' /test_e2e.sh > /tmp/test.sh && bash /tmp/test.sh"]
     depends_on:
-      - middleware
-      - security-engine
-      - vulnerable-backend
+      middleware:
+        condition: service_healthy
+      security-engine:
+        condition: service_healthy
+      vulnerable-backend:
+        condition: service_healthy
 
 volumes:
   pg_data:
