@@ -1,6 +1,7 @@
 #include <drogon/drogon.h>
 #include "src/routes/ProxyRoute.h"
 #include "src/routes/RegistrationRoute.h"
+#include "src/routes/AuthRoute.h"
 
 int main() {
     const std::string dbHost     = getenv("DB_HOST")     ? getenv("DB_HOST")     : "localhost";

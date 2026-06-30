@@ -1,21 +1,32 @@
 -- WebHawk Database Schema
 
 CREATE TABLE users (
-    id            SERIAL PRIMARY KEY,
-    email         VARCHAR(255) UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    created_at    TIMESTAMPTZ DEFAULT NOW()
+    id                    SERIAL PRIMARY KEY,
+    email                 VARCHAR(255) UNIQUE NOT NULL,
+    password_hash         TEXT NOT NULL,
+    role                  VARCHAR(20) NOT NULL DEFAULT 'user',
+    failed_login_attempts INT NOT NULL DEFAULT 0,
+    locked_until          TIMESTAMPTZ,
+    created_at            TIMESTAMPTZ DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- One row per issued refresh token. Access tokens are stateless (JWT) and not stored.
+-- The refresh token itself is never stored in plain text — only a SHA-256 hash.
 CREATE TABLE user_sessions (
-    id          SERIAL PRIMARY KEY,
-    user_id     INT REFERENCES users(id) ON DELETE CASCADE,
-    jwt_token   TEXT NOT NULL,
-    ip_address  VARCHAR(45),
-    created_at  TIMESTAMPTZ DEFAULT NOW(),
-    expires_at  TIMESTAMPTZ NOT NULL,
-    is_active   BOOLEAN DEFAULT TRUE
+    id                 SERIAL PRIMARY KEY,
+    user_id            INT REFERENCES users(id) ON DELETE CASCADE,
+    refresh_token_hash TEXT NOT NULL,
+    ip_address         VARCHAR(45),
+    user_agent         TEXT,
+    created_at         TIMESTAMPTZ DEFAULT NOW(),
+    expires_at         TIMESTAMPTZ NOT NULL,
+    revoked_at         TIMESTAMPTZ,
+    is_active          BOOLEAN DEFAULT TRUE
 );
+
+CREATE INDEX idx_user_sessions_user_id      ON user_sessions(user_id);
+CREATE INDEX idx_user_sessions_token_hash   ON user_sessions(refresh_token_hash);
 
 CREATE TABLE backend_registration (
     id           SERIAL PRIMARY KEY,
