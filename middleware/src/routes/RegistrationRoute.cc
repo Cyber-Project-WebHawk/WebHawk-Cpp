@@ -30,6 +30,17 @@ void RegistrationRoute::registerBackend(
         return;
     }
 
+    const bool isHttp  = request.targetUrl.rfind("http://",  0) == 0;
+    const bool isHttps = request.targetUrl.rfind("https://", 0) == 0;
+    if (!isHttp && !isHttps) {
+        Json::Value err;
+        err["error"] = "'targetUrl' must begin with http:// or https://";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
+        resp->setStatusCode(drogon::k400BadRequest);
+        callback(resp);
+        return;
+    }
+
     getService()->registerBackend(
         request,
         [callback](RegistrationResult result) {
@@ -105,6 +116,13 @@ void RegistrationRoute::deactivateBackend(
         [callback]() {
             auto resp = drogon::HttpResponse::newHttpResponse();
             resp->setStatusCode(drogon::k204NoContent);
+            callback(resp);
+        },
+        [callback]() {
+            Json::Value body;
+            body["error"] = "Backend not found";
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(body);
+            resp->setStatusCode(drogon::k404NotFound);
             callback(resp);
         },
         [callback](const std::string& err) {

@@ -26,10 +26,11 @@ void ProxyService::handleRequest(
             }
 
             ScanRequest scanReq;
-            scanReq.ip     = req->getPeerAddr().toIp();
-            scanReq.method = req->getMethodString();
-            scanReq.path   = req->getPath();
-            scanReq.body   = std::string(req->getBody());
+            scanReq.backendId = backend->id;
+            scanReq.ip        = req->getPeerAddr().toIp();
+            scanReq.method    = req->getMethodString();
+            scanReq.path      = req->getPath();
+            scanReq.body      = std::string(req->getBody());
 
             for (const auto& [k, v] : req->getParameters()) {
                 scanReq.queryParams[k] = v;

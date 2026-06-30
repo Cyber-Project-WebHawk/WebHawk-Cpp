@@ -70,3 +70,6 @@ Testing/
 
 # assignments
 *.pdf
+
+# local secrets — never commit the real .env (keep .env.example tracked)
+.env

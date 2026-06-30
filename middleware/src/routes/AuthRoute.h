@@ -1,6 +1,7 @@
 #pragma once
 #include <drogon/drogon.h>
 #include <memory>
+#include <mutex>
 #include "../services/AuthService.h"
 #include "../repositories/UserRepository.h"
 #include "../repositories/SessionRepository.h"
@@ -41,7 +42,9 @@ public:
 
 private:
     // Lazy — created on first request, not at startup (DB client not ready at ctor time).
+    // Guarded by mutex_ to be safe under concurrent first requests.
     std::shared_ptr<AuthService> getService() {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (!service_) {
             auto db       = drogon::app().getDbClient();
             auto users    = std::make_shared<UserRepository>(db);
@@ -52,4 +55,5 @@ private:
     }
 
     std::shared_ptr<AuthService> service_;
+    std::mutex mutex_;
 };

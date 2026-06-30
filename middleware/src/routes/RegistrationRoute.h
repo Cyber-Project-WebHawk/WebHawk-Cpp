@@ -1,6 +1,7 @@
 #pragma once
 #include <drogon/drogon.h>
 #include <memory>
+#include <mutex>
 #include "../services/RegistrationService.h"
 #include "../repositories/BackendRepository.h"
 
@@ -30,6 +31,7 @@ public:
 private:
     // Lazy — created on first request, not at startup
     std::shared_ptr<RegistrationService> getService() {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (!service_) {
             auto db   = drogon::app().getDbClient();
             auto repo = std::make_shared<BackendRepository>(db);
@@ -39,4 +41,5 @@ private:
     }
 
     std::shared_ptr<RegistrationService> service_;
+    std::mutex mutex_;
 };

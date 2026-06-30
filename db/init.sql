@@ -49,12 +49,5 @@ CREATE TABLE security_logs (
     raw_payload TEXT
 );
 
-CREATE TABLE rate_limit (
-    id            SERIAL PRIMARY KEY,
-    ip_address    VARCHAR(45) NOT NULL,
-    endpoint      TEXT NOT NULL,
-    request_count INT DEFAULT 1,
-    window_start  TIMESTAMPTZ DEFAULT NOW(),
-    is_blocked    BOOLEAN DEFAULT FALSE,
-    UNIQUE(ip_address, endpoint)
-);
+-- Rate limiting is handled in-memory by Redis (INCR + EXPIRE per IP).
+-- No PostgreSQL table needed for rate limit counters.

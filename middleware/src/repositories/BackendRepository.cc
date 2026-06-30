@@ -69,13 +69,13 @@ void BackendRepository::save(
 
 void BackendRepository::deactivate(
     int id,
-    std::function<void()>&& callback,
+    std::function<void(bool)>&& callback,
     std::function<void(const std::string&)>&& errorCallback)
 {
     dbClient_->execSqlAsync(
         "UPDATE backend_registration SET is_active = FALSE WHERE id = $1",
-        [callback = std::move(callback)](const drogon::orm::Result& /*result*/) {
-            callback();
+        [callback = std::move(callback)](const drogon::orm::Result& result) {
+            callback(result.affectedRows() > 0);
         },
         [errorCallback = std::move(errorCallback)](const drogon::orm::DrogonDbException& e) {
             errorCallback(e.base().what());

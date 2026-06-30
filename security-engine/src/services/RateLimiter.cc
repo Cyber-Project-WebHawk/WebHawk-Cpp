@@ -1,41 +1,42 @@
 #include "RateLimiter.h"
 #include <drogon/drogon.h>
+#include <memory>
 
-bool RateLimiter::isBlocked(const std::string& ip) {
+void RateLimiter::checkBlocked(const std::string& ip,
+                                std::function<void(bool)>&& callback) {
     const std::string key = "rate:" + ip;
 
     auto redis = drogon::app().getRedisClient();
     if (!redis) {
-        return false;
+        // Redis unavailable — fail open (do not block traffic)
+        callback(false);
+        return;
     }
 
-    bool blocked = false;
-
-    // Use a promise/future pair to wait for the async Redis result
-    // without blocking the event loop thread
-    std::promise<int> promise;
-    auto future = promise.get_future();
+    // Wrap in shared_ptr so both the success and error lambdas can capture it.
+    auto cb = std::make_shared<std::function<void(bool)>>(std::move(callback));
 
     redis->execCommandAsync(
-        [&promise](const drogon::nosql::RedisResult& result) {
-            promise.set_value(static_cast<int>(result.asInteger()));
+        [key, cb](const drogon::nosql::RedisResult& result) {
+            int count = static_cast<int>(result.asInteger());
+
+            // On first request in a new window, set the 60-second TTL.
+            if (count == 1) {
+                if (auto red = drogon::app().getRedisClient()) {
+                    red->execCommandAsync(
+                        [](const drogon::nosql::RedisResult&) {},
+                        [](const std::exception&) {},
+                        "EXPIRE %s 60", key.c_str()
+                    );
+                }
+            }
+
+            (*cb)(count > MAX_REQUESTS_PER_MINUTE);
         },
-        [&promise](const std::exception& e) {
-            promise.set_value(0);
+        [cb](const std::exception& /*e*/) {
+            // Redis error — fail open
+            (*cb)(false);
         },
         "INCR %s", key.c_str()
     );
-
-    int count = future.get();
-
-    // Set expiry on first request in the window
-    if (count == 1) {
-        redis->execCommandAsync(
-            [](const drogon::nosql::RedisResult&) {},
-            [](const std::exception&) {},
-            "EXPIRE %s 60", key.c_str()
-        );
-    }
-
-    return count > MAX_REQUESTS_PER_MINUTE;
 }

@@ -31,9 +31,10 @@ public:
         std::function<void(const std::string&)>&& errorCallback
     );
 
+    // callback receives true if the backend was found and deactivated, false if not found.
     void deactivate(
         int id,
-        std::function<void()>&& callback,
+        std::function<void(bool)>&& callback,
         std::function<void(const std::string&)>&& errorCallback
     );
 

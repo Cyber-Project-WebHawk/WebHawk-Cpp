@@ -38,7 +38,16 @@ void RegistrationService::listBackends(
 void RegistrationService::deactivateBackend(
     int id,
     std::function<void()>&& callback,
+    std::function<void()>&& notFoundCallback,
     std::function<void(const std::string&)>&& errorCallback)
 {
-    repo_->deactivate(id, std::move(callback), std::move(errorCallback));
+    repo_->deactivate(
+        id,
+        [callback = std::move(callback),
+         notFoundCallback = std::move(notFoundCallback)](bool found) mutable {
+            if (found) callback();
+            else       notFoundCallback();
+        },
+        std::move(errorCallback)
+    );
 }

@@ -2,7 +2,6 @@
 #include "StringUtils.h"
 #include <vector>
 
-// Patterns that indicate an XSS attempt
 static const std::vector<std::string> XSS_PATTERNS = {
     "<script",
     "</script>",
@@ -49,9 +48,15 @@ bool XssDetector::containsXss(const std::string& input, std::string& matchedPatt
     return false;
 }
 
-DetectionResult XssDetector::scan(const std::map<std::string, std::string>& queryParams,
+DetectionResult XssDetector::scan(const std::string& path,
+                                   const std::map<std::string, std::string>& queryParams,
                                    const std::string& body) {
     std::string matched;
+
+    // Check the URL path
+    if (containsXss(path, matched)) {
+        return { false, "XSS pattern found in path: " + matched };
+    }
 
     // Check each query parameter value
     for (const auto& [key, value] : queryParams) {

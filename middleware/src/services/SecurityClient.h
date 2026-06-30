@@ -5,6 +5,7 @@
 #include <functional>
 
 struct ScanRequest {
+    int         backendId = 0;
     std::string ip;
     std::string method;
     std::string path;

@@ -15,7 +15,7 @@ int main() {
     pgConfig.databaseName     = dbName;
     pgConfig.username         = dbUser;
     pgConfig.password         = dbPassword;
-    pgConfig.connectionNumber = 1;
+    pgConfig.connectionNumber = 4;
     pgConfig.name             = "default";
     pgConfig.isFast           = false;
     pgConfig.characterSet     = "";

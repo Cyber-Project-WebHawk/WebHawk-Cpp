@@ -33,6 +33,7 @@ public:
     void deactivateBackend(
         int id,
         std::function<void()>&& callback,
+        std::function<void()>&& notFoundCallback,
         std::function<void(const std::string&)>&& errorCallback
     );
 

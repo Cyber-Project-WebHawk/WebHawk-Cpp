@@ -4,7 +4,8 @@
 
 class SecurityLogRepository {
 public:
-    static void log(const std::string& ip,
+    static void log(int backendId,
+                    const std::string& ip,
                     const std::string& method,
                     const std::string& endpoint,
                     const std::string& attackType,

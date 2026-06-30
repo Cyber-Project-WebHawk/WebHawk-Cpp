@@ -1,12 +1,14 @@
 #pragma once
 
 #include <string>
-#include <future>
+#include <functional>
 
 class RateLimiter {
 public:
-    // Returns true if this IP has exceeded the request limit
-    static bool isBlocked(const std::string& ip);
+    // Async: calls callback(true) if this IP is rate-limited, callback(false) if safe.
+    // Never blocks the event loop.
+    static void checkBlocked(const std::string& ip,
+                              std::function<void(bool)>&& callback);
 
 private:
     static constexpr int MAX_REQUESTS_PER_MINUTE = 100;

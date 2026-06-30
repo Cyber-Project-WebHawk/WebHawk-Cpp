@@ -11,10 +11,11 @@ void SecurityClient::scan(
 {
     // ── build request body ────────────────────────────────────────────────────
     Json::Value body;
-    body["ip"]     = request.ip;
-    body["method"] = request.method;
-    body["path"]   = request.path;
-    body["body"]   = request.body;
+    body["backend_id"] = request.backendId;
+    body["ip"]         = request.ip;
+    body["method"]     = request.method;
+    body["path"]       = request.path;
+    body["body"]       = request.body;
 
     Json::Value query_params(Json::objectValue);
     for (const auto& [k, v] : request.queryParams) {

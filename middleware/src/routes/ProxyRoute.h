@@ -1,6 +1,7 @@
 #pragma once
 #include <drogon/drogon.h>
 #include <memory>
+#include <mutex>
 #include "../services/ProxyService.h"
 #include "../repositories/BackendRepository.h"
 #include "../services/SecurityClient.h"
@@ -21,6 +22,7 @@ public:
 
 private:
     std::shared_ptr<ProxyService> getProxyService() {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (!proxyService_) {
             auto db        = drogon::app().getDbClient();
             auto repo      = std::make_shared<BackendRepository>(db);
@@ -34,5 +36,6 @@ private:
     }
 
     std::shared_ptr<ProxyService> proxyService_;
+    std::mutex mutex_;
     std::string extractApiKey(const drogon::HttpRequestPtr& req);
 };

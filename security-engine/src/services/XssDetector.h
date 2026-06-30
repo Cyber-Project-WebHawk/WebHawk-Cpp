@@ -6,7 +6,8 @@
 
 class XssDetector {
 public:
-    static DetectionResult scan(const std::map<std::string, std::string>& queryParams,
+    static DetectionResult scan(const std::string& path,
+                                const std::map<std::string, std::string>& queryParams,
                                 const std::string& body);
 
 private:
