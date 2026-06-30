@@ -42,16 +42,91 @@ Client
 
 ---
 
-## Quick Start
+## Running the Project
+
+### Prerequisites
+
+| Requirement | Minimum version | Notes |
+|-------------|-----------------|-------|
+| Docker | 24+ | `docker --version` |
+| Docker Compose v2 | included with Docker Desktop | use `docker compose` (with a space), not `docker-compose` |
+| Free RAM | 4 GB | Drogon is compiled from source inside the containers — builds are heavy |
+| Free disk | 3 GB | image layers + postgres data volume |
+
+> **First build takes 10–20 minutes.** Subsequent builds reuse Docker layer cache and are much faster.
+
+---
+
+### Step 1 — Configure environment
 
 ```bash
 cp .env.example .env
-# Edit .env — set DB_PASSWORD and JWT_SECRET
+```
 
+Open `.env` and fill in the two required values:
+
+```
+DB_PASSWORD=choose_a_strong_password
+JWT_SECRET=at_least_32_random_characters_here
+```
+
+`JWT_SECRET` is used to sign and verify every access token. Use any long random string.
+
+---
+
+### Step 2 — Build and start all services
+
+```bash
 docker compose up --build
 ```
 
-All five services start together. Postgres is initialised from `db/init.sql` on first run.
+Docker Compose starts everything in dependency order:
+
+```
+postgres  ──┐
+redis     ──┼──▶  security-engine  ──▶  middleware
+             └──▶  vulnerable-backend
+```
+
+postgres and redis must pass their health checks before the app services start.
+
+---
+
+### Step 3 — Verify all services are up
+
+Watch the logs for these lines:
+
+| Service | Log line that means "ready" |
+|---------|-----------------------------|
+| postgres | `database system is ready to accept connections` |
+| redis | `Ready to accept connections tcp` |
+| security-engine | `Listening on 0.0.0.0:8081` |
+| middleware | `Listening on 0.0.0.0:8080` |
+| vulnerable-backend | `Listening on 0.0.0.0:9090` |
+
+Quick smoke test with curl:
+
+```bash
+# Should return 400 (bad request), NOT 502 (gateway error)
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/auth/register
+
+# Should return 200
+curl -s http://localhost:9090/vuln/ping
+```
+
+---
+
+### Useful commands
+
+| Goal | Command |
+|------|---------|
+| Start (no rebuild) | `docker compose up` |
+| Rebuild after code change | `docker compose up --build` |
+| Run in background | `docker compose up -d` |
+| View logs | `docker compose logs -f` |
+| Stop (keep data) | `docker compose down` |
+| Stop and wipe database | `docker compose down -v` |
+| Rebuild one service only | `docker compose up --build middleware` |
 
 ---
 
@@ -227,42 +302,145 @@ Every blocked request is written to `security_logs`:
 
 ---
 
-## End-to-End Test
+## Testing
+
+### Running the Test Suite
+
+`test_e2e.sh` is a self-contained bash script that runs **21 automated checks** against the live running system. It uses `curl` to make HTTP requests and `jq` to parse JSON responses.
+
+**Requirements:** `curl` (pre-installed on most systems) and `jq`.
 
 ```bash
-# 1. Register the first user (becomes admin)
-curl -X POST http://localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@webhawk.local","password":"SecurePass123!"}'
+# Install jq if needed
+# macOS:   brew install jq
+# Ubuntu:  sudo apt-get install jq
 
-# 2. Login and save the access token
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@webhawk.local","password":"SecurePass123!"}'
+# 1. Start all services
+docker compose up --build -d
 
-# 3. Register the vulnerable backend
-curl -X POST http://localhost:8080/api/backends/register \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <accessToken>" \
-  -d '{"serviceName":"vuln-backend","targetUrl":"http://vulnerable-backend:9090"}'
-# → save the returned apiKey
-
-# 4. Safe request — forwarded to backend
-curl http://localhost:8080/proxy/vuln/ping \
-  -H "X-WebHawk-API-Key: <apiKey>"
-
-# 5. SQLi attempt — blocked by WebHawk
-curl -X POST http://localhost:8080/proxy/vuln/login \
-  -H "X-WebHawk-API-Key: <apiKey>" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin'\''--","password":"x"}'
-# → 403 { "error": "Blocked by WebHawk", "attack_type": "SQLi" }
-
-# 6. XSS attempt — blocked by WebHawk
-curl "http://localhost:8080/proxy/vuln/search?q=<script>alert(1)</script>" \
-  -H "X-WebHawk-API-Key: <apiKey>"
-# → 403 { "error": "Blocked by WebHawk", "attack_type": "XSS" }
+# 2. Wait ~30 seconds for all services to initialise, then run:
+bash test_e2e.sh
 ```
+
+When all tests pass the output looks like this:
+
+```
+=== WebHawk E2E Test Suite ===
+
+--- Auth ---
+[PASS] POST /api/auth/register (first user → admin) (HTTP 201)
+[PASS] POST /api/auth/register (duplicate → 409) (HTTP 409)
+[PASS] POST /api/auth/login (got token)
+[PASS] First user has admin role
+[PASS] GET /api/auth/me (with token) (HTTP 200)
+[PASS] GET /api/auth/me (no token → 401) (HTTP 401)
+[PASS] POST /api/auth/login (wrong password → 401) (HTTP 401)
+[PASS] POST /api/auth/refresh (HTTP 200)
+
+--- Backend Registration ---
+[PASS] POST /api/backends/register (64-char key)
+[PASS] POST /api/backends/register (bad URL scheme → 400) (HTTP 400)
+[PASS] GET /api/backends (HTTP 200)
+[PASS] GET /api/backends (non-admin → 403) (HTTP 403)
+
+--- Proxy / Security Engine ---
+[PASS] GET /proxy/vuln/ping (no API key → 401) (HTTP 401)
+[PASS] GET /proxy/vuln/ping (bad key → 404) (HTTP 404)
+[PASS] GET /proxy/vuln/ping (safe → forwarded, 200) (HTTP 200)
+[PASS] POST /proxy/vuln/login (SQLi → 403) (HTTP 403)
+[PASS] SQLi attack_type in response
+[PASS] GET /proxy/vuln/search (XSS → 403) (HTTP 403)
+[PASS] DELETE /api/backends/99999 (not found → 404) (HTTP 404)
+[PASS] POST /api/auth/logout (HTTP 200)
+[PASS] POST /api/auth/refresh (revoked token → 401) (HTTP 401)
+
+==============================
+Results: 21 passed, 0 failed
+==============================
+```
+
+The script exits with code `0` if all tests pass, or `1` if any test fails (`set -euo pipefail` is set, so it also stops immediately on an unexpected error).
+
+---
+
+### What Each Test Group Covers
+
+**Auth (8 checks)**
+
+| Check | What it verifies |
+|-------|-----------------|
+| Register → 201 | User creation works, password is stored (hashed) |
+| Duplicate → 409 | Unique email constraint enforced |
+| Login → token | JWT access + refresh tokens are issued |
+| First user → admin | Role auto-assignment logic works |
+| `/me` with token → 200 | `JwtAuthFilter` accepts valid tokens |
+| `/me` no token → 401 | `JwtAuthFilter` rejects missing tokens |
+| Wrong password → 401 | Password verification (Argon2id) works |
+| Refresh → new token | Refresh token rotation works |
+
+**Backend Registration (4 checks)**
+
+| Check | What it verifies |
+|-------|-----------------|
+| Register backend → 64-char key | API key generator produces a valid 64-char hex key |
+| Bad URL scheme → 400 | Input validation rejects non-http/https URLs |
+| List backends → 200 | `GET /api/backends` returns the registered entry |
+| Non-admin → 403 | `AdminOnlyFilter` blocks regular users |
+
+**Proxy / Security Engine (9 checks)**
+
+| Check | What it verifies |
+|-------|-----------------|
+| No API key → 401 | Proxy enforces the `X-WebHawk-API-Key` header |
+| Bad key → 404 | Unknown API keys are rejected |
+| Safe request → 200 | Clean traffic is forwarded to the backend |
+| SQLi payload → 403 | Security engine detects `admin'--` in request body |
+| Response has `attack_type: SQLi` | Response body includes the attack classification |
+| XSS payload → 403 | Security engine detects `%3Cscript%3E` in query params |
+| Delete nonexistent → 404 | Backend deactivation returns 404 for unknown IDs |
+| Logout → 200 | Refresh token is revoked in the database |
+| Revoked token → 401 | Revoked refresh token is rejected on next use |
+
+---
+
+### What It Means in a CI/CD Pipeline
+
+The script is designed to run as a pipeline stage after `docker compose up`. Because it exits `0` on success and `1` on failure, any CI system (GitHub Actions, GitLab CI, Jenkins) can use the exit code to pass or fail the build automatically.
+
+**Example GitHub Actions workflow:**
+
+```yaml
+name: E2E Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env
+        run: |
+          echo "DB_PASSWORD=testpass" >> .env
+          echo "JWT_SECRET=test-secret-for-ci-only-not-for-prod" >> .env
+
+      - name: Start services
+        run: docker compose up --build -d
+
+      - name: Wait for services to be ready
+        run: sleep 30
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Run E2E tests
+        run: bash test_e2e.sh
+```
+
+**When the pipeline passes:** all 21 assertions returned the expected HTTP status codes and JSON fields. The system is working end-to-end — auth, proxy, and attack detection are all functional.
+
+**When the pipeline fails:** a `[FAIL]` line in the output shows exactly which check broke and what status code was actually returned, making it easy to pinpoint the failing component.
 
 ---
 
