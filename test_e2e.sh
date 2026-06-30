@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-BASE="http://localhost:8080"
+BASE="${WEBHAWK_BASE:-http://localhost:8080}"
 PASS=0
 FAIL=0
 

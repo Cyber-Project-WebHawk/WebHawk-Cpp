@@ -308,17 +308,26 @@ Every blocked request is written to `security_logs`:
 
 `test_e2e.sh` is a self-contained bash script that runs **21 automated checks** against the live running system. It uses `curl` to make HTTP requests and `jq` to parse JSON responses.
 
-**Requirements:** `curl` (pre-installed on most systems) and `jq`.
+No extra tools needed — `curl` and `jq` are installed automatically inside a dedicated Docker container.
 
 ```bash
-# Install jq if needed
-# macOS:   brew install jq
-# Ubuntu:  sudo apt-get install jq
-
-# 1. Start all services
+# 1. Start all services (first time — builds everything)
 docker compose up --build -d
 
-# 2. Wait ~30 seconds for all services to initialise, then run:
+# 2. Wait ~30 seconds for all services to initialise, then run the tests:
+docker compose --profile test run --rm tester
+```
+
+To run tests on subsequent runs (no rebuild needed):
+
+```bash
+docker compose up -d
+docker compose --profile test run --rm tester
+```
+
+You can still run the script directly on your machine if you have `jq` installed:
+
+```bash
 bash test_e2e.sh
 ```
 
@@ -431,11 +440,8 @@ jobs:
       - name: Wait for services to be ready
         run: sleep 30
 
-      - name: Install jq
-        run: sudo apt-get install -y jq
-
       - name: Run E2E tests
-        run: bash test_e2e.sh
+        run: docker compose --profile test run --rm tester
 ```
 
 **When the pipeline passes:** all 21 assertions returned the expected HTTP status codes and JSON fields. The system is working end-to-end — auth, proxy, and attack detection are all functional.

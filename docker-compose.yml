@@ -79,5 +79,18 @@ services:
       postgres:
         condition: service_healthy
 
+  tester:
+    image: alpine:3.19
+    profiles: ["test"]
+    environment:
+      WEBHAWK_BASE: http://middleware:8080
+    volumes:
+      - ./test_e2e.sh:/test_e2e.sh:ro
+    entrypoint: ["sh", "-c", "apk add --no-cache bash curl jq > /dev/null 2>&1 && bash /test_e2e.sh"]
+    depends_on:
+      - middleware
+      - security-engine
+      - vulnerable-backend
+
 volumes:
   pg_data:
