@@ -10,8 +10,8 @@ BASE="${WEBHAWK_BASE:-http://localhost:8080}"
 PASS=0
 FAIL=0
 
-ok()   { echo "[PASS] $1"; ((PASS++)); }
-fail() { echo "[FAIL] $1"; ((FAIL++)); }
+ok()   { echo "[PASS] $1"; ((PASS+=1)); }
+fail() { echo "[FAIL] $1"; ((FAIL+=1)); }
 
 assert_status() {
     local label="$1" expected="$2" actual="$3"
