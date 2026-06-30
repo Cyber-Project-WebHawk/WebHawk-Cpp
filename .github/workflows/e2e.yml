@@ -1,0 +1,41 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env
+        run: |
+          echo "DB_PASSWORD=testpass" >> .env
+          echo "JWT_SECRET=test-secret-for-ci-only-not-for-prod-use" >> .env
+
+      - name: Build and start services
+        run: docker compose up --build -d
+
+      - name: Wait for services to be healthy
+        run: |
+          timeout 600 bash -c '
+            until [ "$(docker compose ps middleware --format "{{.Health}}")" = "healthy" ] \
+               && [ "$(docker compose ps security-engine --format "{{.Health}}")" = "healthy" ] \
+               && [ "$(docker compose ps vulnerable-backend --format "{{.Health}}")" = "healthy" ]; do
+              echo "Waiting for services..."
+              sleep 5
+            done
+          '
+
+      - name: Run E2E tests
+        run: docker compose --profile test run --rm tester
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
