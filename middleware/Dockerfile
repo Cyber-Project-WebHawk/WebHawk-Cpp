@@ -2,9 +2,10 @@
 FROM ubuntu:22.04 AS builder
 
 RUN apt-get update && apt-get install -y \
-    cmake git build-essential \
+    cmake git build-essential pkg-config \
     libssl-dev libjsoncpp-dev \
     uuid-dev zlib1g-dev libpq-dev \
+    libsodium-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Drogon from source
@@ -27,7 +28,7 @@ RUN mkdir build && cd build \
 FROM ubuntu:22.04
 
 RUN apt-get update && apt-get install -y \
-    libssl3 libjsoncpp25 libpq5 \
+    libssl3 libjsoncpp25 libpq5 libsodium23 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

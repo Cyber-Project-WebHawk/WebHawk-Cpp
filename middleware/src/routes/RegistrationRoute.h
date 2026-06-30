@@ -6,10 +6,11 @@
 
 class RegistrationRoute : public drogon::HttpController<RegistrationRoute> {
 public:
+    // All backend administration requires a valid admin access token.
     METHOD_LIST_BEGIN
-        ADD_METHOD_TO(RegistrationRoute::registerBackend,   "/api/backends/register", drogon::Post);
-        ADD_METHOD_TO(RegistrationRoute::listBackends,      "/api/backends",          drogon::Get);
-        ADD_METHOD_TO(RegistrationRoute::deactivateBackend, "/api/backends/{id}",     drogon::Delete);
+        ADD_METHOD_TO(RegistrationRoute::registerBackend,   "/api/backends/register", drogon::Post,   "JwtAuthFilter", "AdminOnlyFilter");
+        ADD_METHOD_TO(RegistrationRoute::listBackends,      "/api/backends",          drogon::Get,    "JwtAuthFilter", "AdminOnlyFilter");
+        ADD_METHOD_TO(RegistrationRoute::deactivateBackend, "/api/backends/{id}",     drogon::Delete, "JwtAuthFilter", "AdminOnlyFilter");
     METHOD_LIST_END
 
     void registerBackend(
